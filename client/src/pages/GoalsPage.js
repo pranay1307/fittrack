@@ -42,13 +42,32 @@ const GoalsPage = () => {
     } catch (err) { console.error(err); }
   };
 
-  const updateProgress = async (goal, newValue) => {
-    try {
-      const status = newValue >= goal.targetValue ? 'completed' : 'active';
-      await goalAPI.update(goal._id, { currentValue: newValue, status });
-      loadGoals();
-    } catch (err) { console.error(err); }
-  };
+ const updateProgress = async (goal, newValue) => {
+  try {
+    let status = 'active';
+
+    if (goal.type === 'weight_loss') {
+      status =
+        newValue <= goal.targetValue
+          ? 'completed'
+          : 'active';
+    } else {
+      status =
+        newValue >= goal.targetValue
+          ? 'completed'
+          : 'active';
+    }
+
+    await goalAPI.update(goal._id, {
+      currentValue: newValue,
+      status,
+    });
+
+    loadGoals();
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this goal?')) return;

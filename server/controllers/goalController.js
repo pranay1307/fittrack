@@ -6,12 +6,21 @@ exports.getGoals = async (req, res) => {
   try {
     const { status } = req.query;
     const filter = { userId: req.userId };
+
     if (status) filter.status = status;
 
     const goals = await Goal.find(filter).sort({ createdAt: -1 });
-    res.status(200).json({ success: true, count: goals.length, data: goals });
+
+    res.status(200).json({
+      success: true,
+      count: goals.length,
+      data: goals,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -19,21 +28,48 @@ exports.getGoals = async (req, res) => {
 // @route   POST /api/goals
 exports.createGoal = async (req, res) => {
   try {
-    const { title, type, targetValue, unit, deadline } = req.body;
-    if (!title || !targetValue) {
-      return res.status(400).json({ success: false, message: 'Please provide title and target value' });
+    const {
+      title,
+      type,
+      targetValue,
+      currentValue,
+      unit,
+      deadline,
+    } = req.body;
+
+    if (!title || targetValue === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide title and target value',
+      });
     }
-    const goal = await Goal.create({
+
+    const goalData = {
       userId: req.userId,
       title,
       type: type || 'custom',
       targetValue,
+      currentValue: currentValue || 0,
       unit: unit || '',
       deadline,
+    };
+
+    // Save starting weight/value for weight loss goals
+    if (type === 'weight_loss') {
+      goalData.startingValue = currentValue;
+    }
+
+    const goal = await Goal.create(goalData);
+
+    res.status(201).json({
+      success: true,
+      data: goal,
     });
-    res.status(201).json({ success: true, data: goal });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -42,19 +78,44 @@ exports.createGoal = async (req, res) => {
 exports.updateGoal = async (req, res) => {
   try {
     let goal = await Goal.findById(req.params.id);
+
     if (!goal) {
-      return res.status(404).json({ success: false, message: 'Goal not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Goal not found',
+      });
     }
+
     if (goal.userId.toString() !== req.userId) {
-      return res.status(403).json({ success: false, message: 'Not authorized' });
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized',
+      });
     }
-    goal = await Goal.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
+
+    // Prevent startingValue from being modified accidentally
+    if (req.body.startingValue) {
+      delete req.body.startingValue;
+    }
+
+    goal = await Goal.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: goal,
     });
-    res.status(200).json({ success: true, data: goal });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -63,15 +124,31 @@ exports.updateGoal = async (req, res) => {
 exports.deleteGoal = async (req, res) => {
   try {
     const goal = await Goal.findById(req.params.id);
+
     if (!goal) {
-      return res.status(404).json({ success: false, message: 'Goal not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Goal not found',
+      });
     }
+
     if (goal.userId.toString() !== req.userId) {
-      return res.status(403).json({ success: false, message: 'Not authorized' });
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized',
+      });
     }
+
     await Goal.findByIdAndDelete(req.params.id);
-    res.status(200).json({ success: true, message: 'Goal deleted' });
+
+    res.status(200).json({
+      success: true,
+      message: 'Goal deleted',
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
